@@ -1,0 +1,32 @@
+#!/bin/bash
+set -e
+
+POSTGRESQL_USER=${POSTGRESQL_USER:-"nailgun"}
+POSTGRESQL_PASS=${POSTGRESQL_PASS:-"nailgun"}
+POSTGRESQL_DB=${POSTGRESQL_DB:-"nailgun"}
+POSTGRESQL_USER2=${POSTGRESQL_USER2:-"ostf"}
+POSTGRESQL_PASS2=${POSTGRESQL_PASS2:-"ostf"}
+POSTGRESQL_DB2=${POSTGRESQL_DB2:-"ostf"}
+
+POSTGRESQL_BIN=/usr/lib/postgresql/9.1/bin/postgres
+POSTGRESQL_CONFIG_FILE=/etc/postgresql/9.1/main/postgresql.conf
+POSTGRESQL_DATA=/var/lib/postgresql/9.1/main
+
+if [ ! -d $POSTGRESQL_DATA ]; then
+    mkdir -p $POSTGRESQL_DATA
+    chown -R postgres:postgres $POSTGRESQL_DATA
+    sudo -u postgres /usr/lib/postgresql/9.1/bin/initdb -D $POSTGRESQL_DATA
+    ln -s /etc/ssl/certs/ssl-cert-snakeoil.pem $POSTGRESQL_DATA/server.crt
+    ln -s /etc/ssl/private/ssl-cert-snakeoil.key $POSTGRESQL_DATA/server.key
+fi
+
+sudo -u postgres $POSTGRESQL_BIN --single --config-file=$POSTGRESQL_CONFIG_FILE <<< "CREATE USER $POSTGRESQL_USER WITH SUPERUSER;" || :
+sudo -u postgres $POSTGRESQL_BIN --single --config-file=$POSTGRESQL_CONFIG_FILE <<< "ALTER USER $POSTGRESQL_USER WITH PASSWORD '$POSTGRESQL_PASS';" || :
+sudo -u postgres $POSTGRESQL_BIN --single --config-file=$POSTGRESQL_CONFIG_FILE <<< "CREATE DATABASE $POSTGRESQL_DB OWNER $POSTGRESQL_USER;"
+if [ -n "$POSTGRESQL_USER2" ]; then
+  sudo -u postgres $POSTGRESQL_BIN --single --config-file=$POSTGRESQL_CONFIG_FILE <<< "CREATE USER $POSTGRESQL_USER2 WITH SUPERUSER;" || :
+  sudo -u postgres $POSTGRESQL_BIN --single --config-file=$POSTGRESQL_CONFIG_FILE <<< "ALTER USER $POSTGRESQL_USER2 WITH PASSWORD '$POSTGRESQL_PASS2';" || :
+  sudo -u postgres $POSTGRESQL_BIN --single --config-file=$POSTGRESQL_CONFIG_FILE <<< "CREATE DATABASE $POSTGRESQL_DB2 OWNER $POSTGRESQL_USER2;" || :
+fi
+
+exec sudo -u postgres $POSTGRESQL_BIN --config-file=$POSTGRESQL_CONFIG_FILE
